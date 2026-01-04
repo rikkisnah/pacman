@@ -27,6 +27,7 @@ func (g *Game) handlePelletCollision() {
 			// Update and persist high score if surpassed
 			if g.score > g.highScore {
 				g.highScore = g.score
+				g.highScoreName = g.playerName
 				_ = SaveHighScoreRecord(&HighScoreRecord{Name: g.playerName, Score: g.highScore})
 			}
 		}
@@ -38,6 +39,10 @@ func (g *Game) checkPlayerGhostCollision() {
 	pr := float64(tileSize/2 - 2)
 	gr := float64(tileSize/2 - 2)
 	for _, gh := range g.ghosts {
+		// Skip already eaten ghosts
+		if gh.State == entities.GhostEaten {
+			continue
+		}
 		dx := g.player.X - gh.X
 		dy := g.player.Y - gh.Y
 		if dx*dx+dy*dy <= (pr+gr)*(pr+gr) {
@@ -56,6 +61,7 @@ func (g *Game) checkPlayerGhostCollision() {
 				}
 				if g.score > g.highScore {
 					g.highScore = g.score
+					g.highScoreName = g.playerName
 					_ = SaveHighScoreRecord(&HighScoreRecord{Name: g.playerName, Score: g.highScore})
 				}
 				g.ghostEatCombo++
@@ -74,6 +80,7 @@ func (g *Game) checkPlayerGhostCollision() {
 				// Save best on game over
 				if g.score > g.highScore {
 					g.highScore = g.score
+					g.highScoreName = g.playerName
 					_ = SaveHighScoreRecord(&HighScoreRecord{Name: g.playerName, Score: g.highScore})
 				}
 				// Show leaderboard instead of continuing

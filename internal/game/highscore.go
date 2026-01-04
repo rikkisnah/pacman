@@ -127,6 +127,11 @@ func SaveHighScoreRecord(rec *HighScoreRecord) error {
 	if err := os.WriteFile(tmp, data, 0o644); err != nil {
 		return err
 	}
+	if err := os.Rename(tmp, path); err == nil {
+		return nil
+	}
+	// On Windows, Rename can fail if the destination already exists.
+	_ = os.Remove(path)
 	return os.Rename(tmp, path)
 }
 

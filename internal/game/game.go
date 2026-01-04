@@ -22,16 +22,17 @@ import (
 const (
 	tileSize                   = 16
 	updatesPerSecond           = 60
-	playerSpeedPixelsPerSecond = 720.0 // 480.0 * 1.5
+	playerSpeedPixelsPerSecond = 120.0 // ~0.13 sec per tile (classic feel)
 	playerSpeedPixelsPerUpdate = playerSpeedPixelsPerSecond / updatesPerSecond
-	ghostSpeedPixelsPerSecond  = 630.0 // 420.0 * 1.5
+	ghostSpeedPixelsPerSecond  = 105.0 // Slightly slower than player
 	ghostSpeedPixelsPerUpdate  = ghostSpeedPixelsPerSecond / updatesPerSecond
 	frightenedDurationUpdates  = 120 // 120 ticks = 2 seconds at 60 UPS
+	frightenedFlashTicks       = 30  // flash in the last 0.5s
 
 	// Alignment and movement constants
 	// Alignment threshold for turn detection and auto-centering.
-	// Using a full step improves responsiveness at high speeds and low FPS.
-	alignmentThreshold = playerSpeedPixelsPerUpdate / 2 // 6 pixels at current speed
+	// Fixed at 4 pixels for responsive turning at any speed.
+	alignmentThreshold = 4.0
 	// Optional: hard snap to grid centers when crossing near an intersection
 	hardSnapEnabled = true
 	hardSnapEpsilon = 0.75
@@ -84,6 +85,8 @@ func New() *Game {
 	startY := float64(26*tileSize + tileSize/2)
 	p := &entities.Player{X: startX, Y: startY}
 	g := &Game{tileMap: m, player: p, lives: 3}
+	// Ensure the starting tile doesn't contain a pellet, so the player can't score without moving.
+	m.EatPelletAt(int(startX)/tileSize, int(startY)/tileSize)
 
 	// Load persisted high score (with name if present)
 	if rec := LoadHighScoreRecord(); rec != nil {
@@ -142,6 +145,12 @@ func (g *Game) Update() error {
 		return ebiten.Termination
 	}
 
+	// Frightened mode timeout should progress regardless of UI state (name entry/leaderboard).
+	if g.frightenedUntilTick != 0 && g.tickCounter >= g.frightenedUntilTick {
+		g.frightenedUntilTick = 0
+		g.ghostEatCombo = 0
+	}
+
 	// Clear easter egg message when time elapses
 	if g.easterUntilTick != 0 && g.tickCounter >= g.easterUntilTick {
 		g.easterUntilTick = 0
@@ -169,10 +178,6 @@ func (g *Game) Update() error {
 		return nil
 	}
 
-	if g.frightenedUntilTick != 0 && g.tickCounter >= g.frightenedUntilTick {
-		g.frightenedUntilTick = 0
-		g.ghostEatCombo = 0
-	}
 	if g.paused {
 		return nil
 	}
@@ -205,11 +210,20 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		{R: 0, G: 191, B: 255, A: 255},   // cyan
 	}
 	for i, gh := range g.ghosts {
+		// Draw eaten ghosts as just eyes (two small white circles)
+		if gh.State == entities.GhostEaten {
+			eyeOffset := float32(tileSize / 6)
+			eyeRadius := float32(tileSize / 8)
+			white := color.RGBA{R: 255, G: 255, B: 255, A: 255}
+			vector.DrawFilledCircle(off, float32(gh.X)-eyeOffset, float32(gh.Y), eyeRadius, white, true)
+			vector.DrawFilledCircle(off, float32(gh.X)+eyeOffset, float32(gh.Y), eyeRadius, white, true)
+			continue
+		}
 		c := ghostColors[i%len(ghostColors)]
 		if g.isFrightened() {
 			remainingTicks := g.frightenedUntilTick - g.tickCounter
-			// Flash white/blue in last 2 seconds (120 ticks)
-			if remainingTicks < 120 {
+			// Flash white/blue in the last portion of frightened mode.
+			if remainingTicks < frightenedFlashTicks {
 				// Alternate between white and blue every 10 ticks
 				if (g.tickCounter/10)%2 == 0 {
 					c = color.RGBA{R: 255, G: 255, B: 255, A: 255} // white
@@ -351,6 +365,7 @@ func (g *Game) handleInput() {
 			// Save if necessary with name
 			if g.score > g.highScore {
 				g.highScore = g.score
+				g.highScoreName = g.playerName
 				_ = SaveHighScoreRecord(&HighScoreRecord{Name: g.playerName, Score: g.highScore})
 			}
 			g.quit = true
@@ -390,6 +405,7 @@ func (g *Game) handleInput() {
 		// Persist high score before quitting
 		if g.score > g.highScore {
 			g.highScore = g.score
+			g.highScoreName = g.playerName
 			_ = SaveHighScoreRecord(&HighScoreRecord{Name: g.playerName, Score: g.highScore})
 		}
 		// If leaderboard showing already, exit; otherwise show it first

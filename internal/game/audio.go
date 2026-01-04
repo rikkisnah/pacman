@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/hajimehoshi/ebiten/v2/audio"
 	"github.com/hajimehoshi/ebiten/v2/audio/wav"
@@ -102,6 +103,24 @@ func (am *AudioManager) play(sd *SoundData) {
 	}
 	_ = p.Rewind()
 	p.Play()
+	go func() {
+		ticker := time.NewTicker(50 * time.Millisecond)
+		defer ticker.Stop()
+		timeout := time.NewTimer(30 * time.Second)
+		defer timeout.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				if !p.IsPlaying() {
+					_ = p.Close()
+					return
+				}
+			case <-timeout.C:
+				_ = p.Close()
+				return
+			}
+		}
+	}()
 }
 
 func (am *AudioManager) PlayPellet()      { am.play(am.pellet) }

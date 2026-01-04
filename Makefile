@@ -1,6 +1,7 @@
 SHELL := /bin/bash
 
 GO      ?= go
+GO_CMD  ?= env -u GOROOT $(GO)
 BINARY  ?= pacman
 PKG     ?= ./cmd/pacman
 BUILD_DIR := bin
@@ -21,27 +22,27 @@ help:
 	@echo "  test     - Run unit tests"
 
 deps:
-	$(GO) mod tidy
+	$(GO_CMD) mod tidy
 
 fmt:
-	$(GO) fmt ./...
+	$(GO_CMD) fmt ./...
 
 vet:
-	$(GO) vet ./...
+	$(GO_CMD) vet ./...
 
 build: deps fmt vet
 	@mkdir -p $(BUILD_DIR)
-	$(GO) build -o $(BUILD_DIR)/$(BINARY) $(PKG)
+	$(GO_CMD) build -o $(BUILD_DIR)/$(BINARY) $(PKG)
 
 test: deps
-	$(GO) test ./...
+	$(GO_CMD) test ./...
 
 coverage: deps
-	$(GO) test ./... -coverprofile=coverage.out
-	$(GO) tool cover -func=coverage.out
+	$(GO_CMD) test ./... -coverprofile=coverage.out
+	$(GO_CMD) tool cover -func=coverage.out
 
 coverage-html: coverage
-	$(GO) tool cover -html=coverage.out -o coverage.html
+	$(GO_CMD) tool cover -html=coverage.out -o coverage.html
 	@echo "HTML report written to coverage.html"
 
 run: build
@@ -54,14 +55,13 @@ release: build-linux build-darwin build-windows
 
 build-linux:
 	@mkdir -p $(BUILD_DIR)
-	GOOS=linux GOARCH=amd64 $(GO) build -o $(BUILD_DIR)/$(BINARY)-linux-amd64 $(PKG)
+	GOOS=linux GOARCH=amd64 $(GO_CMD) build -o $(BUILD_DIR)/$(BINARY)-linux-amd64 $(PKG)
 
 build-darwin:
 	@mkdir -p $(BUILD_DIR)
-	GOOS=darwin GOARCH=amd64 $(GO) build -o $(BUILD_DIR)/$(BINARY)-darwin-amd64 $(PKG)
+	GOOS=darwin GOARCH=amd64 $(GO_CMD) build -o $(BUILD_DIR)/$(BINARY)-darwin-amd64 $(PKG)
 
 build-windows:
 	@mkdir -p $(BUILD_DIR)
-	GOOS=windows GOARCH=amd64 $(GO) build -o $(BUILD_DIR)/$(BINARY)-windows-amd64.exe $(PKG)
-
+	GOOS=windows GOARCH=amd64 $(GO_CMD) build -o $(BUILD_DIR)/$(BINARY)-windows-amd64.exe $(PKG)
 

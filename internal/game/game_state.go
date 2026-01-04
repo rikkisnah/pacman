@@ -1,9 +1,6 @@
 package game
 
-import (
-	"pacman/internal/entities"
-	tm "pacman/internal/tilemap"
-)
+import "pacman/internal/entities"
 
 func (g *Game) isFrightened() bool {
 	return g.frightenedUntilTick > g.tickCounter
@@ -31,6 +28,7 @@ func (g *Game) resetPositions() {
 		ox, oy := g.nearestOpenTile(positions[i][0], positions[i][1])
 		gh.X = float64(ox*tileSize + tileSize/2)
 		gh.Y = float64(oy*tileSize + tileSize/2)
+		gh.State = entities.GhostNormal
 		gh.CurrentDir = entities.DirLeft
 	}
 }
@@ -59,9 +57,9 @@ func (g *Game) nearestOpenTile(x, y int) (int, int) {
 	return x, y
 }
 
-// nearestCorridorTile finds a non-wall, non-empty corridor (i.e., avoids large empty blue regions)
+// nearestCorridorTile finds a nearby non-wall tile.
 func (g *Game) nearestCorridorTile(x, y int) (int, int) {
-	if !g.tileMap.IsWall(x, y) && g.tileMap.Tiles[y][x] != tm.TileEmpty {
+	if !g.tileMap.IsWall(x, y) {
 		return x, y
 	}
 	maxR := 8
@@ -72,7 +70,7 @@ func (g *Game) nearestCorridorTile(x, y int) (int, int) {
 				if nx < 0 || ny < 0 || nx >= g.tileMap.Width || ny >= g.tileMap.Height {
 					continue
 				}
-				if !g.tileMap.IsWall(nx, ny) && g.tileMap.Tiles[ny][nx] != tm.TileEmpty {
+				if !g.tileMap.IsWall(nx, ny) {
 					return nx, ny
 				}
 			}

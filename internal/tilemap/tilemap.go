@@ -21,15 +21,19 @@ type TileMap struct {
 	Height   int
 	TileSize int
 	Tiles    [][]Tile
+	wallImg  *ebiten.Image
 }
 
 func NewDefaultMap(tileSize int) *TileMap {
 	grid := parseMaze(defaultMaze)
+	wallImg := ebiten.NewImage(tileSize, tileSize)
+	wallImg.Fill(color.RGBA{R: 33, G: 33, B: 255, A: 255})
 	return &TileMap{
 		Width:    len(grid[0]),
 		Height:   len(grid),
 		TileSize: tileSize,
 		Tiles:    grid,
+		wallImg:  wallImg,
 	}
 }
 
@@ -57,7 +61,6 @@ func (m *TileMap) EatPelletAt(x, y int) (bool, bool) {
 }
 
 func (m *TileMap) Draw(dst *ebiten.Image) {
-	blue := color.RGBA{R: 33, G: 33, B: 255, A: 255}
 	pelletColor := color.RGBA{R: 255, G: 255, B: 255, A: 255}
 
 	for y := 0; y < m.Height; y++ {
@@ -70,12 +73,9 @@ func (m *TileMap) Draw(dst *ebiten.Image) {
 
 			switch t {
 			case TileWall:
-				// Draw a filled rectangle for the wall
-				rect := ebiten.NewImage(m.TileSize, m.TileSize)
-				rect.Fill(blue)
 				op := &ebiten.DrawImageOptions{}
 				op.GeoM.Translate(float64(px), float64(py))
-				dst.DrawImage(rect, op)
+				dst.DrawImage(m.wallImg, op)
 			case TilePellet:
 				vector.DrawFilledCircle(dst, cx, cy, float32(m.TileSize)/8, pelletColor, true)
 			case TilePower:

@@ -7,6 +7,18 @@ import (
 	"pacman/internal/entities"
 )
 
+const (
+	ghostHouseExitGridX = 13
+	ghostHouseExitGridY = 11
+)
+
+func (g *Game) ghostInHouse(gx, gy int) bool {
+	// Bounds around the ghost house interior in the default maze.
+	// Include row 12 (the gate row) so ghosts keep exiting until fully through.
+	// Row 15 is the bottom of the house interior (row 16 is all walls).
+	return gx >= 10 && gx <= 17 && gy >= 12 && gy <= 15
+}
+
 func (g *Game) updatePlayerMovement() {
 	// Handle turning at intersections
 	if g.player.DesiredDir != g.player.CurrentDir {
@@ -221,23 +233,6 @@ func (g *Game) updateGhostsRandom() {
 		gy := int(gh.Y) / tileSize
 		cx := float64(gx*tileSize + tileSize/2)
 		cy := float64(gy*tileSize + tileSize/2)
-		aligned := math.Abs(gh.X-cx) < 1.0 && math.Abs(gh.Y-cy) < 1.0
-
-		if aligned {
-			// Choose direction based on ghost state and global frightened state
-			var chosenDir entities.Direction
-			if gh.State == entities.GhostEaten {
-				chosenDir = g.getDirectionTowardTarget(gx, gy, 14, 14)
-			} else if g.isFrightened() {
-				chosenDir = g.getFleeDirection(gh, gx, gy)
-			} else {
-				chosenDir = g.getRandomDirection(gh, gx, gy)
-			}
-			gh.CurrentDir = chosenDir
-			// Snap to center when aligned to avoid drift
-			gh.X = cx
-			gh.Y = cy
-		}
 
 		// Move ghost with appropriate speed, but only if not blocked
 		speed := ghostSpeedPixelsPerUpdate
@@ -247,25 +242,56 @@ func (g *Game) updateGhostsRandom() {
 			speed *= 0.5 // 50% speed when frightened
 		}
 
-		// Use proper collision detection like player movement
-		if g.canMoveGhost(gh, gh.CurrentDir) {
-			dx, dy := entities.DirDelta(gh.CurrentDir)
-			gh.X += float64(dx) * speed
-			gh.Y += float64(dy) * speed
-		} else {
-			// If blocked, snap to center and force new direction choice
+		// Treat "close enough" to center as aligned, since ghost speeds don't land exactly on centers.
+		// Use half the speed as epsilon so ghosts can actually move away from center.
+		alignEps := speed / 2.0
+		if alignEps < 0.5 {
+			alignEps = 0.5
+		}
+		aligned := math.Abs(gh.X-cx) <= alignEps && math.Abs(gh.Y-cy) <= alignEps
+		if aligned {
 			gh.X = cx
 			gh.Y = cy
-			// Force alignment so ghost will choose new direction next frame
-			aligned = true
-			// Try to choose a new valid direction immediately
-			var chosenDir entities.Direction
-			if g.isFrightened() {
-				chosenDir = g.getFleeDirection(gh, gx, gy)
+			// Choose direction based on ghost state and global frightened state.
+			if gh.State == entities.GhostEaten {
+				gh.CurrentDir = g.getDirectionTowardTarget(gx, gy, 14, 14)
+			} else if g.ghostInHouse(gx, gy) {
+				// No "ghost house" state machine yet; bias ghosts to leave the house.
+				gh.CurrentDir = g.getDirectionTowardTarget(gx, gy, ghostHouseExitGridX, ghostHouseExitGridY)
+			} else if g.isFrightened() {
+				gh.CurrentDir = g.getFleeDirection(gh, gx, gy)
 			} else {
-				chosenDir = g.getRandomDirection(gh, gx, gy)
+				gh.CurrentDir = g.getRandomDirection(gh, gx, gy)
 			}
-			gh.CurrentDir = chosenDir
+		}
+
+		// Move using the same corner-based collision logic as the player.
+		dx, dy := entities.DirDelta(gh.CurrentDir)
+		newX := gh.X + float64(dx)*speed
+		newY := gh.Y + float64(dy)*speed
+		if g.isValidPosition(newX, newY) {
+			gh.X = newX
+			gh.Y = newY
+		} else {
+			// If blocked, snap to center and choose a new direction immediately.
+			gh.X = cx
+			gh.Y = cy
+			if gh.State == entities.GhostEaten {
+				gh.CurrentDir = g.getDirectionTowardTarget(gx, gy, 14, 14)
+			} else if g.ghostInHouse(gx, gy) {
+				gh.CurrentDir = g.getDirectionTowardTarget(gx, gy, ghostHouseExitGridX, ghostHouseExitGridY)
+			} else if g.isFrightened() {
+				gh.CurrentDir = g.getFleeDirection(gh, gx, gy)
+			} else {
+				gh.CurrentDir = g.getRandomDirection(gh, gx, gy)
+			}
+			dx, dy = entities.DirDelta(gh.CurrentDir)
+			newX = gh.X + float64(dx)*speed
+			newY = gh.Y + float64(dy)*speed
+			if g.isValidPosition(newX, newY) {
+				gh.X = newX
+				gh.Y = newY
+			}
 		}
 
 		// If eaten and reached house center, restore to normal state
