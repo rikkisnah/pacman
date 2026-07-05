@@ -1,7 +1,6 @@
 package game
 
 import (
-	"bufio"
 	"encoding/json"
 	"errors"
 	"os"
@@ -40,15 +39,6 @@ func configBaseDir() (string, error) {
 		return "", err
 	}
 	return dir, nil
-}
-
-// highScoreFilePath returns the absolute path to the high score file.
-func highScoreFilePath() (string, error) {
-	dir, err := configBaseDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(dir, highScoreJSONFN), nil
 }
 
 // LoadHighScore reads the persisted high score (score only). Prefer JSON, fallback to legacy txt.
@@ -158,15 +148,11 @@ func LoadLeaderboard() []HighScoreRecord {
 	}
 	// Fallback to legacy txt
 	tpath := filepath.Join(dir, highScoreTxtFN)
-	if f, err := os.Open(tpath); err == nil {
-		defer f.Close()
-		scanner := bufio.NewScanner(f)
-		if scanner.Scan() {
-			text := strings.TrimSpace(scanner.Text())
-			n, err := strconv.Atoi(text)
-			if err == nil && n >= 0 {
-				return []HighScoreRecord{{Name: "", Score: n}}
-			}
+	if data, err := os.ReadFile(tpath); err == nil {
+		text := strings.TrimSpace(string(data))
+		n, parseErr := strconv.Atoi(text)
+		if parseErr == nil && n >= 0 {
+			return []HighScoreRecord{{Name: "", Score: n}}
 		}
 	}
 	return nil

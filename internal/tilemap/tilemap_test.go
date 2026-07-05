@@ -41,3 +41,36 @@ func TestIsWallBounds(t *testing.T) {
 		t.Fatalf("out-of-bounds should be treated as wall")
 	}
 }
+
+func TestRemainingPelletsCountsRegularAndPowerPellets(t *testing.T) {
+	m := &TileMap{
+		Width:  3,
+		Height: 2,
+		Tiles: [][]Tile{
+			{TileEmpty, TilePellet, TileWall},
+			{TilePower, TileEmpty, TilePellet},
+		},
+	}
+
+	if got := m.RemainingPellets(); got != 3 {
+		t.Fatalf("remaining pellets = %d, want 3", got)
+	}
+	if ate, power := m.EatPelletAt(1, 0); !ate || power {
+		t.Fatalf("eat regular pellet: ate=%v power=%v", ate, power)
+	}
+	if got := m.RemainingPellets(); got != 2 {
+		t.Fatalf("remaining pellets after regular pellet = %d, want 2", got)
+	}
+	if ate, power := m.EatPelletAt(0, 1); !ate || !power {
+		t.Fatalf("eat power pellet: ate=%v power=%v", ate, power)
+	}
+	if got := m.RemainingPellets(); got != 1 {
+		t.Fatalf("remaining pellets after power pellet = %d, want 1", got)
+	}
+	if ate, power := m.EatPelletAt(2, 1); !ate || power {
+		t.Fatalf("eat final regular pellet: ate=%v power=%v", ate, power)
+	}
+	if got := m.RemainingPellets(); got != 0 {
+		t.Fatalf("remaining pellets after final pellet = %d, want 0", got)
+	}
+}

@@ -54,10 +54,16 @@ func TestSaveRecordUpsertAndSort(t *testing.T) {
 	tdir := t.TempDir()
 	t.Setenv("PACMAN_CONFIG_DIR", tdir)
 	// Add two players
-	_ = SaveHighScoreRecord(&HighScoreRecord{Name: "Ana", Score: 100})
-	_ = SaveHighScoreRecord(&HighScoreRecord{Name: "Bob", Score: 200})
+	if err := SaveHighScoreRecord(&HighScoreRecord{Name: "Ana", Score: 100}); err != nil {
+		t.Fatalf("save Ana: %v", err)
+	}
+	if err := SaveHighScoreRecord(&HighScoreRecord{Name: "Bob", Score: 200}); err != nil {
+		t.Fatalf("save Bob: %v", err)
+	}
 	// Update Ana to higher than Bob
-	_ = SaveHighScoreRecord(&HighScoreRecord{Name: "Ana", Score: 300})
+	if err := SaveHighScoreRecord(&HighScoreRecord{Name: "Ana", Score: 300}); err != nil {
+		t.Fatalf("update Ana: %v", err)
+	}
 	list := LoadLeaderboard()
 	if len(list) != 2 {
 		t.Fatalf("expected 2 entries, got %d", len(list))

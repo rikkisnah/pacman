@@ -11,7 +11,7 @@ import (
 func main() {
 	g := game.New()
 	ebiten.SetWindowTitle("Pacman (Go + Ebiten)")
-	ebiten.SetWindowResizable(false)
+	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeDisabled)
 	ebiten.SetWindowSize(g.ScreenWidth(), g.ScreenHeight())
 	if err := ebiten.RunGame(g); err != nil {
 		log.Fatal(err)

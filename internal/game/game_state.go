@@ -1,9 +1,38 @@
 package game
 
-import "pacman/internal/entities"
+import (
+	"log"
+	"strings"
+
+	"pacman/internal/entities"
+)
 
 func (g *Game) isFrightened() bool {
 	return g.frightenedUntilTick > g.tickCounter
+}
+
+func (g *Game) persistPlayerScore() {
+	if g.score <= 0 || strings.TrimSpace(g.playerName) == "" {
+		return
+	}
+
+	if g.score > g.highScore {
+		g.highScore = g.score
+		g.highScoreName = g.playerName
+	}
+	if err := SaveHighScoreRecord(&HighScoreRecord{Name: g.playerName, Score: g.score}); err != nil {
+		log.Printf("could not persist high score: %v", err)
+	}
+}
+
+func (g *Game) completeLevel() {
+	g.levelComplete = true
+	g.paused = false
+	g.showingLeaderboard = false
+	g.player.CurrentDir = entities.DirNone
+	g.player.DesiredDir = entities.DirNone
+	g.frightenedUntilTick = 0
+	g.ghostEatCombo = 0
 }
 
 // reverseAllGhosts reverses the direction of all ghosts when entering frightened mode

@@ -1,0 +1,77 @@
+#ai-assisted with OCA/OpenAI Model with human supervision
+
+name: Native Release Artifacts
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-amd64
+            os: ubuntu-24.04
+            output: dist/pacman-linux-amd64
+            artifact: dist/pacman-linux-amd64.tar.gz
+          - name: darwin-amd64
+            os: macos-15-intel
+            output: dist/pacman-darwin-amd64
+            artifact: dist/pacman-darwin-amd64.tar.gz
+          - name: windows-amd64
+            os: windows-2025
+            output: dist/pacman-windows-amd64.exe
+            artifact: dist/pacman-windows-amd64.exe
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Install Linux Ebitengine dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            libc6-dev \
+            libgl1-mesa-dev \
+            libxcursor-dev \
+            libxi-dev \
+            libxinerama-dev \
+            libxrandr-dev \
+            libxxf86vm-dev \
+            libasound2-dev \
+            pkg-config
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.22.x"
+          cache-dependency-path: go.sum
+
+      - name: Build native binary
+        shell: bash
+        run: |
+          mkdir -p dist
+          go build -trimpath -o "${{ matrix.output }}" ./cmd/pacman
+
+      - name: Package Unix binary
+        if: runner.os != 'Windows'
+        shell: bash
+        run: tar -czf "${{ matrix.artifact }}" -C dist "$(basename "${{ matrix.output }}")"
+
+      - name: Upload native artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: pacman-${{ matrix.name }}
+          path: ${{ matrix.artifact }}
+          if-no-files-found: error
+          retention-days: 14

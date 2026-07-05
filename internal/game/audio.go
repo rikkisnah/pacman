@@ -93,11 +93,11 @@ func (am *AudioManager) play(sd *SoundData) {
 		return
 	}
 	// Decode from bytes each time to allow overlapping plays
-	stream, err := wav.Decode(am.ctx, bytes.NewReader(sd.raw))
+	stream, err := wav.DecodeWithSampleRate(am.ctx.SampleRate(), bytes.NewReader(sd.raw))
 	if err != nil {
 		return
 	}
-	p, err := audio.NewPlayer(am.ctx, stream)
+	p, err := am.ctx.NewPlayer(stream)
 	if err != nil {
 		return
 	}

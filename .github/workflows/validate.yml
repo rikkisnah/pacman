@@ -1,0 +1,70 @@
+#ai-assisted with OCA/OpenAI Model with human supervision
+
+name: Validate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PACMAN_DISABLE_AUDIO: "1"
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Install Ebitengine and visual-smoke dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            libc6-dev \
+            libgl1-mesa-dev \
+            libxcursor-dev \
+            libxi-dev \
+            libxinerama-dev \
+            libxrandr-dev \
+            libxxf86vm-dev \
+            libasound2-dev \
+            pkg-config \
+            xvfb \
+            x11-utils \
+            imagemagick
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.22.x"
+          cache-dependency-path: go.sum
+
+      - name: Install pinned golangci-lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version-file: .golangci-lint-version
+          install-only: true
+
+      - name: Run local validation gate
+        run: make validate
+
+      - name: Run graphical launch smoke test
+        run: make visual-smoke
+
+      - name: Upload visual-smoke screenshot
+        uses: actions/upload-artifact@v7
+        with:
+          name: pacman-visual-smoke
+          path: tmp/pacman-smoke.png
+          if-no-files-found: error
+          retention-days: 7

@@ -24,11 +24,9 @@ func (g *Game) handlePelletCollision() {
 					g.audio.PlayPellet()
 				}
 			}
-			// Update and persist high score if surpassed
-			if g.score > g.highScore {
-				g.highScore = g.score
-				g.highScoreName = g.playerName
-				_ = SaveHighScoreRecord(&HighScoreRecord{Name: g.playerName, Score: g.highScore})
+			g.persistPlayerScore()
+			if g.tileMap.RemainingPellets() == 0 {
+				g.completeLevel()
 			}
 		}
 	}
@@ -59,11 +57,7 @@ func (g *Game) checkPlayerGhostCollision() {
 				if g.audio != nil {
 					g.audio.PlayGhostEaten()
 				}
-				if g.score > g.highScore {
-					g.highScore = g.score
-					g.highScoreName = g.playerName
-					_ = SaveHighScoreRecord(&HighScoreRecord{Name: g.playerName, Score: g.highScore})
-				}
+				g.persistPlayerScore()
 				g.ghostEatCombo++
 				// Mark ghost as eaten: it should return to house quickly (eyes-only behavior)
 				gh.State = entities.GhostEaten
@@ -77,12 +71,7 @@ func (g *Game) checkPlayerGhostCollision() {
 			}
 			g.resetPositions()
 			if g.lives <= 0 {
-				// Save best on game over
-				if g.score > g.highScore {
-					g.highScore = g.score
-					g.highScoreName = g.playerName
-					_ = SaveHighScoreRecord(&HighScoreRecord{Name: g.playerName, Score: g.highScore})
-				}
+				g.persistPlayerScore()
 				// Show leaderboard instead of continuing
 				g.showingLeaderboard = true
 			}
