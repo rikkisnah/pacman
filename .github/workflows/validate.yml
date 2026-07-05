@@ -56,7 +56,7 @@ jobs:
           install-only: true
 
       - name: Run local validation gate
-        run: make validate
+        run: xvfb-run -a make validate
 
       - name: Run graphical launch smoke test
         run: make visual-smoke

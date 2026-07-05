@@ -354,7 +354,7 @@ def ci_workflow_violations(repo_root: Path) -> list[str]:
         "actions/checkout@v7",
         "actions/setup-go@v6",
         "golangci/golangci-lint-action@v9",
-        "make validate",
+        "xvfb-run -a make validate",
         "make visual-smoke",
     )
     require_file_terms(repo_root, ".github/workflows/validate.yml", validation_terms, violations)
@@ -394,6 +394,7 @@ def score_test_quality(repo_root: Path) -> ScoreResult:
             "test_runtime_contract_rejects_changed_movement_constant",
             "test_runtime_contract_rejects_missing_level_completion",
             "test_ci_contract_requires_validation_gate",
+            "test_ci_contract_requires_headless_validation",
         ):
             if required not in text:
                 violations.append(f"scorecard tests missing {required}")

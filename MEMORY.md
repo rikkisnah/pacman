@@ -27,7 +27,7 @@ Durable, non-secret project context for future agents and maintainers.
 - Movement uses 120/105 px/s player/ghost speeds and a fixed 4-pixel alignment threshold.
 - Eating the final regular or power pellet enters a terminal level-complete state before ghost collision handling.
 - `make visual-smoke` launches the game under Xvfb and captures `tmp/pacman-smoke.png`.
-- GitHub validates on Linux and produces release artifacts on native Linux, Intel macOS, and Windows runners.
+- GitHub runs validation under Xvfb on Linux and produces release artifacts on native Linux, Intel macOS, and Windows runners.
 
 ## Decisions
 

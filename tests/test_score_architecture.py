@@ -236,6 +236,20 @@ class ScoreArchitectureTests(unittest.TestCase):
         self.assertLess(result.score, 10)
         self.assertTrue(any("make validate" in violation for violation in result.violations))
 
+    def test_ci_contract_requires_headless_validation(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._clean_repo(Path(tmp))
+            workflow = repo / ".github/workflows/validate.yml"
+            workflow.write_text(
+                workflow.read_text(encoding="utf-8").replace("xvfb-run -a make validate", "make validate"),
+                encoding="utf-8",
+            )
+
+            result = score_architecture.score_build_and_tooling(repo)
+
+        self.assertLess(result.score, 10)
+        self.assertTrue(any("xvfb-run -a make validate" in violation for violation in result.violations))
+
     def test_ci_contract_requires_native_release_matrix(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             repo = self._clean_repo(Path(tmp))
@@ -584,6 +598,7 @@ class ScoreArchitectureTests(unittest.TestCase):
             "def test_runtime_contract_rejects_changed_movement_constant(): pass\n"
             "def test_runtime_contract_rejects_missing_level_completion(): pass\n"
             "def test_ci_contract_requires_validation_gate(): pass\n"
+            "def test_ci_contract_requires_headless_validation(): pass\n"
         )
 
     def _game_source(self) -> str:
@@ -611,7 +626,7 @@ class ScoreArchitectureTests(unittest.TestCase):
             "permissions:\n  contents: read\n"
             "on:\n  pull_request:\n  push:\n  workflow_dispatch:\n"
             "# actions/checkout@v7 actions/setup-go@v6 golangci/golangci-lint-action@v9\n"
-            "# make validate\n# make visual-smoke\n"
+            "# xvfb-run -a make validate\n# make visual-smoke\n"
         )
 
     def _release_workflow(self) -> str:

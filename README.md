@@ -135,7 +135,7 @@ This repository uses local-first governance and validation:
 - `CONTEXT.md` is a temporary branch handoff placeholder.
 - `INSTALL.md`, `DEVELOP.md`, and `CREATE-PR.md` define repeatable workflows.
 - `make score-gate` requires every enabled architecture dimension to score 10/10.
-- GitHub validation runs `make validate` and `make visual-smoke`; release builds run natively on each target OS.
+- GitHub validation runs `make validate` under Xvfb and then runs `make visual-smoke`; release builds run natively on each target OS.
 
 Treat documentation drift as incomplete work. Never store credentials, tokens, private keys, bearer headers, customer data, or other sensitive material in repository docs or examples.
 
