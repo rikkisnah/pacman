@@ -13,7 +13,11 @@ func TestScreenDimensionsPositive(t *testing.T) {
 }
 
 func TestPlayerCannotMoveThroughWall(t *testing.T) {
+	t.Setenv("PACMAN_DISABLE_AUDIO", "1")
+	t.Setenv("PACMAN_CONFIG_DIR", t.TempDir())
 	g := New()
+	g.enteringName = false
+	g.ghosts = nil
 	// Find a wall cell with a free cell to its left
 	found := false
 	for y := 1; y < g.tileMap.Height-1 && !found; y++ {
@@ -32,7 +36,9 @@ func TestPlayerCannotMoveThroughWall(t *testing.T) {
 	}
 	oldX := g.player.X
 	for i := 0; i < 30; i++ {
-		_ = g.Update()
+		if err := g.Update(); err != nil {
+			t.Fatalf("update returned an error: %v", err)
+		}
 	}
 	if g.player.X > oldX+7 {
 		t.Fatalf("player appears to have moved through a wall: oldX=%v newX=%v", oldX, g.player.X)
@@ -108,7 +114,9 @@ func TestHighScoreIntegrationOnPelletAndGhost(t *testing.T) {
 	g.score += 10
 	if g.score > g.highScore {
 		g.highScore = g.score
-		_ = SaveHighScore(g.highScore)
+		if err := SaveHighScore(g.highScore); err != nil {
+			t.Fatalf("save pellet high score: %v", err)
+		}
 	}
 	if g.highScore != 10 {
 		t.Fatalf("expected high score 10 after pellet, got %d", g.highScore)
@@ -118,7 +126,9 @@ func TestHighScoreIntegrationOnPelletAndGhost(t *testing.T) {
 	g.score += 200
 	if g.score > g.highScore {
 		g.highScore = g.score
-		_ = SaveHighScore(g.highScore)
+		if err := SaveHighScore(g.highScore); err != nil {
+			t.Fatalf("save ghost high score: %v", err)
+		}
 	}
 	if g.highScore != 210 {
 		t.Fatalf("expected high score 210 after ghost, got %d", g.highScore)
@@ -170,6 +180,7 @@ func TestNewLoadsExistingHighScore(t *testing.T) {
 func TestHighScoreUpdatedOnPelletCollision(t *testing.T) {
 	t.Setenv("PACMAN_CONFIG_DIR", t.TempDir())
 	g := New()
+	g.playerName = "Player"
 	// Put player exactly at current grid's center
 	gx, gy := g.playerGrid()
 	cx, cy := g.cellCenter(gx, gy)
@@ -191,6 +202,7 @@ func TestHighScoreUpdatedOnPelletCollision(t *testing.T) {
 func TestHighScoreUpdatedOnGhostEatWhenFrightened(t *testing.T) {
 	t.Setenv("PACMAN_CONFIG_DIR", t.TempDir())
 	g := New()
+	g.playerName = "Player"
 	// Frightened state active
 	g.tickCounter = 100
 	g.frightenedUntilTick = 200
@@ -212,6 +224,7 @@ func TestHighScoreUpdatedOnGhostEatWhenFrightened(t *testing.T) {
 func TestHighScoreSavedOnGameOver(t *testing.T) {
 	t.Setenv("PACMAN_CONFIG_DIR", t.TempDir())
 	g := New()
+	g.playerName = "Player"
 	g.lives = 1
 	g.score = 123
 	g.highScore = 0

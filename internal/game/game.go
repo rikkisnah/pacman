@@ -2,19 +2,19 @@ package game
 
 import (
 	"fmt"
+	"image"
 	"image/color"
 	"math"
 	"math/rand"
 	"sort"
 	"strings"
-	"time"
 
 	"pacman/internal/entities"
 	tm "pacman/internal/tilemap"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
-	"github.com/hajimehoshi/ebiten/v2/text"
+	"github.com/hajimehoshi/ebiten/v2/text/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 	"golang.org/x/image/font/basicfont"
 )
@@ -49,8 +49,18 @@ const (
 	maxGhostPoints    = 1600
 
 	// Display constants
-	displayFitRatio = 0.75 // Use 75% of display area
-	fontCharWidth   = 7    // basicfont.Face7x13 character width
+	displayFitRatio          = 0.75 // Use 75% of display area
+	fontCharWidth            = 7    // basicfont.Face7x13 character width
+	namePromptPadding        = 4
+	levelCompletePanelWidth  = 196
+	levelCompletePanelHeight = 78
+	levelCompleteBorder      = 2
+)
+
+var (
+	basicTextFace            = text.NewGoXFace(basicfont.Face7x13)
+	namePromptBackdropColor  = color.RGBA{A: 255}
+	levelCompleteBorderColor = color.RGBA{R: 255, G: 215, A: 255}
 )
 
 type Game struct {
@@ -63,6 +73,7 @@ type Game struct {
 	playerName          string
 	enteringName        bool
 	showingLeaderboard  bool
+	levelComplete       bool
 	lives               int
 	fullscreen          bool
 	paused              bool
@@ -78,7 +89,6 @@ type Game struct {
 }
 
 func New() *Game {
-	rand.Seed(time.Now().UnixNano())
 	m := tm.NewDefaultMap(tileSize)
 	// Start player on a free corridor near bottom center (x=14, y=26 in default maze)
 	startX := float64(14*tileSize + tileSize/2)
@@ -111,7 +121,7 @@ func New() *Game {
 	// Compute initial scale to fit within ~75% of the display area
 	nativeW := m.Width * tileSize
 	nativeH := m.Height * tileSize
-	sw, sh := ebiten.ScreenSizeInFullscreen()
+	sw, sh := ebiten.Monitor().Size()
 	maxW := int(float64(sw) * displayFitRatio)
 	maxH := int(float64(sh) * displayFitRatio)
 	scaleW := float64(maxW) / float64(nativeW)
@@ -137,12 +147,94 @@ func (g *Game) ScreenHeight() int {
 	return int(float64(g.tileMap.Height*tileSize) * g.scale)
 }
 
+func drawBasicText(dst *ebiten.Image, content string, x, baselineY int, textColor color.Color) {
+	op := &text.DrawOptions{}
+	op.GeoM.Translate(float64(x), float64(baselineY)-basicTextFace.Metrics().HAscent)
+	op.ColorScale.ScaleWithColor(textColor)
+	text.Draw(dst, content, basicTextFace, op)
+}
+
+func namePromptLayout(prompt string, nativeWidth, nativeHeight int) (textX, baselineY int, panel image.Rectangle) {
+	textWidth, _ := text.Measure(prompt, basicTextFace, 0)
+	contentWidth := int(math.Ceil(textWidth))
+	metrics := basicTextFace.Metrics()
+	contentHeight := int(math.Ceil(metrics.HAscent + metrics.HDescent))
+	ascent := int(math.Ceil(metrics.HAscent))
+
+	textX = (nativeWidth - contentWidth) / 2
+	baselineY = nativeHeight / 2
+	panel = image.Rect(
+		textX-namePromptPadding,
+		baselineY-ascent-namePromptPadding,
+		textX+contentWidth+namePromptPadding,
+		baselineY-ascent+contentHeight+namePromptPadding,
+	)
+	return textX, baselineY, panel
+}
+
+func drawNamePrompt(dst *ebiten.Image, prompt string, nativeWidth, nativeHeight int) {
+	textX, baselineY, panel := namePromptLayout(prompt, nativeWidth, nativeHeight)
+	vector.DrawFilledRect(
+		dst,
+		float32(panel.Min.X),
+		float32(panel.Min.Y),
+		float32(panel.Dx()),
+		float32(panel.Dy()),
+		namePromptBackdropColor,
+		true,
+	)
+	drawBasicText(dst, prompt, textX, baselineY, color.White)
+}
+
+func centeredBasicTextX(content string, width int) int {
+	textWidth, _ := text.Measure(content, basicTextFace, 0)
+	return (width - int(math.Ceil(textWidth))) / 2
+}
+
+func levelCompletePanelLayout(nativeWidth, nativeHeight int) image.Rectangle {
+	left := (nativeWidth - levelCompletePanelWidth) / 2
+	top := (nativeHeight - levelCompletePanelHeight) / 2
+	return image.Rect(left, top, left+levelCompletePanelWidth, top+levelCompletePanelHeight)
+}
+
+func drawLevelComplete(dst *ebiten.Image, score, nativeWidth, nativeHeight int) {
+	panel := levelCompletePanelLayout(nativeWidth, nativeHeight)
+	vector.DrawFilledRect(
+		dst,
+		float32(panel.Min.X),
+		float32(panel.Min.Y),
+		float32(panel.Dx()),
+		float32(panel.Dy()),
+		levelCompleteBorderColor,
+		true,
+	)
+	vector.DrawFilledRect(
+		dst,
+		float32(panel.Min.X+levelCompleteBorder),
+		float32(panel.Min.Y+levelCompleteBorder),
+		float32(panel.Dx()-2*levelCompleteBorder),
+		float32(panel.Dy()-2*levelCompleteBorder),
+		color.Black,
+		true,
+	)
+
+	title := "LEVEL COMPLETE!"
+	scoreText := fmt.Sprintf("Score: %d", score)
+	hint := "Press Q to exit"
+	drawBasicText(dst, title, centeredBasicTextX(title, nativeWidth), panel.Min.Y+24, levelCompleteBorderColor)
+	drawBasicText(dst, scoreText, centeredBasicTextX(scoreText, nativeWidth), panel.Min.Y+46, color.White)
+	drawBasicText(dst, hint, centeredBasicTextX(hint, nativeWidth), panel.Min.Y+66, color.RGBA{R: 160, G: 160, B: 160, A: 255})
+}
+
 func (g *Game) Update() error {
 	// Advance global tick counter first so timers are robust
 	g.tickCounter++
 	g.handleInput()
 	if g.quit {
 		return ebiten.Termination
+	}
+	if g.levelComplete {
+		return nil
 	}
 
 	// Frightened mode timeout should progress regardless of UI state (name entry/leaderboard).
@@ -183,6 +275,9 @@ func (g *Game) Update() error {
 	}
 	g.updatePlayerMovement()
 	g.handlePelletCollision()
+	if g.levelComplete {
+		return nil
+	}
 	g.updateGhostsRandom()
 	g.checkPlayerGhostCollision()
 	return nil
@@ -247,7 +342,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	if name == "" {
 		name = "Player"
 	}
-	text.Draw(off, fmt.Sprintf("%s  Score: %d  %s: %d  Lives: %d  FPS: %0.0f", name, g.score, hiLabel, g.highScore, g.lives, ebiten.ActualFPS()), basicfont.Face7x13, 4, 12, color.White)
+	drawBasicText(off, fmt.Sprintf("%s  Score: %d  %s: %d  Lives: %d  FPS: %0.0f", name, g.score, hiLabel, g.highScore, g.lives, ebiten.ActualFPS()), 4, 12, color.White)
 
 	// Show frightened timer if active (bottom right corner)
 	if g.isFrightened() {
@@ -257,16 +352,15 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		textWidth := len(timerText) * fontCharWidth
 		nativeW := g.tileMap.Width * tileSize
 		nativeH := g.tileMap.Height * tileSize
-		text.Draw(off, timerText, basicfont.Face7x13, nativeW-textWidth-4, nativeH-4, color.RGBA{R: 0, G: 255, B: 255, A: 255})
+		drawBasicText(off, timerText, nativeW-textWidth-4, nativeH-4, color.RGBA{R: 0, G: 255, B: 255, A: 255})
 	}
 
 	// If awaiting name, draw prompt centered
 	if g.enteringName {
 		prompt := "Enter name: " + g.playerName + "_"
-		pw := len(prompt) * fontCharWidth
 		nativeW := g.tileMap.Width * tileSize
 		nativeH := g.tileMap.Height * tileSize
-		text.Draw(off, prompt, basicfont.Face7x13, (nativeW-pw)/2, nativeH/2, color.White)
+		drawNamePrompt(off, prompt, nativeW, nativeH)
 	}
 
 	// If showing leaderboard, draw it centered
@@ -277,7 +371,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		title := "High Scores"
 		tw := len(title) * fontCharWidth
 		y := nativeH/2 - 40
-		text.Draw(off, title, basicfont.Face7x13, (nativeW-tw)/2, y, color.RGBA{R: 255, G: 215, B: 0, A: 255})
+		drawBasicText(off, title, (nativeW-tw)/2, y, color.RGBA{R: 255, G: 215, B: 0, A: 255})
 		y += 14
 
 		// Sort by score descending using efficient sort.Slice
@@ -294,12 +388,12 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		for i := 0; i < displayCount; i++ {
 			line := fmt.Sprintf("%2d. %-12s  %6d", i+1, list[i].Name, list[i].Score)
 			lw := len(line) * fontCharWidth
-			text.Draw(off, line, basicfont.Face7x13, (nativeW-lw)/2, y, color.White)
+			drawBasicText(off, line, (nativeW-lw)/2, y, color.White)
 			y += 14
 		}
 		hint := "Press Q to exit"
 		hw := len(hint) * fontCharWidth
-		text.Draw(off, hint, basicfont.Face7x13, (nativeW-hw)/2, nativeH-8, color.RGBA{R: 128, G: 128, B: 128, A: 255})
+		drawBasicText(off, hint, (nativeW-hw)/2, nativeH-8, color.RGBA{R: 128, G: 128, B: 128, A: 255})
 	}
 
 	// Draw easter egg message if present (overlay)
@@ -308,7 +402,13 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		mw := len(msg) * fontCharWidth
 		nativeW := g.tileMap.Width * tileSize
 		nativeH := g.tileMap.Height * tileSize
-		text.Draw(off, msg, basicfont.Face7x13, (nativeW-mw)/2, nativeH/2-20, color.RGBA{R: 255, G: 192, B: 203, A: 255})
+		drawBasicText(off, msg, (nativeW-mw)/2, nativeH/2-20, color.RGBA{R: 255, G: 192, B: 203, A: 255})
+	}
+
+	if g.levelComplete {
+		nativeW := g.tileMap.Width * tileSize
+		nativeH := g.tileMap.Height * tileSize
+		drawLevelComplete(off, g.score, nativeW, nativeH)
 	}
 
 	// Scale
@@ -362,12 +462,19 @@ func (g *Game) handleInput() {
 			ebiten.SetFullscreen(g.fullscreen)
 		}
 		if inpututil.IsKeyJustPressed(ebiten.KeyQ) {
-			// Save if necessary with name
-			if g.score > g.highScore {
-				g.highScore = g.score
-				g.highScoreName = g.playerName
-				_ = SaveHighScoreRecord(&HighScoreRecord{Name: g.playerName, Score: g.highScore})
-			}
+			g.persistPlayerScore()
+			g.quit = true
+		}
+		return
+	}
+
+	if g.levelComplete {
+		if inpututil.IsKeyJustPressed(ebiten.KeyF) {
+			g.fullscreen = !g.fullscreen
+			ebiten.SetFullscreen(g.fullscreen)
+		}
+		if inpututil.IsKeyJustPressed(ebiten.KeyQ) {
+			g.persistPlayerScore()
 			g.quit = true
 		}
 		return
@@ -402,12 +509,7 @@ func (g *Game) handleInput() {
 
 	// Quit with 'Q'
 	if inpututil.IsKeyJustPressed(ebiten.KeyQ) {
-		// Persist high score before quitting
-		if g.score > g.highScore {
-			g.highScore = g.score
-			g.highScoreName = g.playerName
-			_ = SaveHighScoreRecord(&HighScoreRecord{Name: g.playerName, Score: g.highScore})
-		}
+		g.persistPlayerScore()
 		// If leaderboard showing already, exit; otherwise show it first
 		if g.showingLeaderboard {
 			g.quit = true

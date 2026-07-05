@@ -1,6 +1,7 @@
 package game
 
 import (
+	"image/color"
 	"testing"
 
 	tm "pacman/internal/tilemap"
@@ -16,6 +17,47 @@ func TestGameDrawDoesNotPanic(t *testing.T) {
 	screen := ebiten.NewImage(g.ScreenWidth(), g.ScreenHeight())
 	// Should not panic
 	g.Draw(screen)
+}
+
+func TestNamePromptBackdropProvidesContrast(t *testing.T) {
+	const (
+		width  = 240
+		height = 120
+	)
+	prompt := "Enter name: Player_"
+	dst := ebiten.NewImage(width, height)
+	dst.Fill(color.RGBA{R: 33, G: 33, B: 255, A: 255})
+
+	drawNamePrompt(dst, prompt, width, height)
+	textX, baselineY, panel := namePromptLayout(prompt, width, height)
+
+	if panel.Min.X >= textX || panel.Max.X <= textX {
+		t.Fatalf("panel must surround text horizontally: panel=%v textX=%d", panel, textX)
+	}
+	if panel.Min.Y >= baselineY || panel.Max.Y <= baselineY {
+		t.Fatalf("panel must surround the text baseline: panel=%v baseline=%d", panel, baselineY)
+	}
+	if namePromptBackdropColor != (color.RGBA{A: 255}) {
+		t.Fatalf("expected opaque black prompt backdrop, got %#v", namePromptBackdropColor)
+	}
+}
+
+func TestLevelCompletePanelIsCenteredAndOpaque(t *testing.T) {
+	const (
+		width  = 448
+		height = 496
+	)
+	panel := levelCompletePanelLayout(width, height)
+
+	if panel.Dx() != levelCompletePanelWidth || panel.Dy() != levelCompletePanelHeight {
+		t.Fatalf("panel size = %dx%d, want %dx%d", panel.Dx(), panel.Dy(), levelCompletePanelWidth, levelCompletePanelHeight)
+	}
+	if panel.Min.X+panel.Max.X != width || panel.Min.Y+panel.Max.Y != height {
+		t.Fatalf("panel is not centered: panel=%v canvas=%dx%d", panel, width, height)
+	}
+	if levelCompleteBorderColor.A != 255 {
+		t.Fatalf("level-complete border must be opaque, got %#v", levelCompleteBorderColor)
+	}
 }
 
 func TestLayoutMatchesScreenSize(t *testing.T) {

@@ -27,3 +27,23 @@ coverage*
 *.coverprofile
 
 
+.env
+.env.local
+.env.production
+.env.development
+tmp/
+.temp/
+.cache/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+__pycache__/
+dist/
+build/
+.coverage
+htmlcov/
+.venv/
+.uv-cache/
+!.env.example
+!.env.sample
+!.env.template

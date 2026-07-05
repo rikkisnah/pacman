@@ -110,6 +110,7 @@ The game should closely mimic the classic Pac-Man look and feel (grid layout, pe
 
 * Detect pellet collision.
 * Increase score; remove pellet from map.
+* Enter a terminal level-complete state when no regular or power pellets remain.
 
 ### Milestone 3 — Ghosts (Random Movement)
 
@@ -157,13 +158,13 @@ The game should closely mimic the classic Pac-Man look and feel (grid layout, pe
 - **Player Movement**: 
   - Grid-based movement with queued direction and cell-center turns
   - Wall collision enforced with wrap-around horizontally
-  - Current speed: 720 px/s at 60 UPS (1.5× original speed)
-  - **Fixed**: Improved turn detection with dynamic alignment threshold for responsive controls at high speeds
+  - Current speed: 120 px/s (2 pixels per update at 60 UPS)
+  - **Fixed**: Improved turn detection with a 4-pixel alignment threshold and center-crossing detection
 - **Ghost System** (Milestone 3 ✓): 
   - 4 ghosts with random movement behavior
   - Ghosts spawn in ghost house area  
   - Ghost-player collision detection with life loss
-  - Current speed: 630 px/s at 60 UPS (1.5× original speed)
+  - Current speed: 105 px/s (1.75 pixels per update at 60 UPS)
 - **Power Pellets & Frightened Mode** (Milestone 5 ✓):
   - Power pellets trigger frightened mode for 120 ticks (2 seconds at 60 UPS)
   - Ghosts turn blue and can be eaten during frightened mode
@@ -171,6 +172,12 @@ The game should closely mimic the classic Pac-Man look and feel (grid layout, pe
   - Eaten ghosts return to ghost house
   - Timer correctly expires and returns ghosts to normal state
   - Frightened timer display shows remaining seconds
+- **Level Completion** ✓:
+  - Eating the final regular or power pellet immediately enters a terminal `LEVEL_COMPLETE` state
+  - Player and ghost simulation stop, the winning score is persisted, and a centered completion panel is shown
+  - A winning player's personal score is recorded even when it remains below the global high score
+  - Final-pellet completion takes precedence over ghost collision on the same update
+  - `Q` exits directly from the completion screen; future multi-level progression can replace this terminal transition
 - **Audio System** ✓:
   - Complete audio manager with support for pellet, power pellet, ghost eaten, and death sounds
   - Graceful fallback to synthesized beeps when sound files are missing
@@ -206,31 +213,34 @@ The game should closely mimic the classic Pac-Man look and feel (grid layout, pe
   - `internal/tilemap`: Maze rendering and tile management
   - `internal/ui`: HUD utilities
   - `assets/sounds/`: Audio files (currently empty)
-  - `CLAUDE.md`: AI development assistant instructions with detailed architecture
+  - `AGENTS.md`: Authoritative AI development contract
+  - `CLAUDE.md`: Symlink to `AGENTS.md` for cross-tool parity
 - **Build tooling**: 
   - Makefile with `deps`, `build`, `run`, `test`, `coverage`, `coverage-html`, `release` targets
-  - Cross-platform builds for Linux, macOS, Windows
+  - Native local release targets and GitHub release artifacts for Linux, Intel macOS, and Windows
   - Comprehensive unit tests including audio and high score systems
 
 ### Technical Details
 - **Game Speed**: 60 updates per second (UPS)
-- **Player Speed**: 720 pixels/second (12 pixels per update)
-- **Ghost Speed**: 630 pixels/second (10.5 pixels per update)  
+- **Player Speed**: 120 pixels/second (2 pixels per update)
+- **Ghost Speed**: 105 pixels/second (1.75 pixels per update)
 - **Frightened Duration**: 120 ticks (2 seconds at 60 UPS)
 - **Lives**: 3 lives, position reset on death
-- **Alignment Threshold**: 6 pixels (`playerSpeedPixelsPerUpdate/2`) for responsive turning
+- **Alignment Threshold**: 4 pixels with center-crossing detection for responsive turning
 - **High Score Storage**: `$HOME/.config/pacman/highscore.json` (or `PACMAN_CONFIG_DIR`)
 
 ### Known Issues
-- **Current Issue**: Up/down arrow keys experiencing responsiveness issues (partial fixes attempted)
+- No confirmed movement responsiveness regression; table-driven tests cover up/down turns from both horizontal approaches and blocked turns.
+- Fruits, chase/scatter ghost AI, and automatic multi-level progression remain unimplemented.
 
 ### Bug Fixes
 - **Fixed**: Movement keys not responding when game paused or showing leaderboard
 - **Fixed**: Direction changes not registering until hitting wall (improved alignment detection)
+- **Fixed**: The game continued indefinitely after the final pellet; it now enters `LEVEL_COMPLETE` before any same-tick ghost collision.
+- **Fixed**: Up/down turns failing outside the immediate center threshold (crossing and alignment regression coverage)
 - **Fixed**: Frightened mode timer expiring correctly after timeout
 
 ### Next Up
-- **Priority**: Fix up/down arrow key responsiveness issues
 - Ghost AI with pathfinding (Milestone 4) - Implement chase/scatter modes
 - Fruits and level progression (Milestone 6)
 - Actual sound file assets

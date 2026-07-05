@@ -27,9 +27,10 @@ func (g *Game) updatePlayerMovement() {
 			// Snap to grid center on the perpendicular axis to avoid drift
 			gx, gy := g.playerGrid()
 			cx, cy := g.cellCenter(gx, gy)
-			if g.player.DesiredDir == entities.DirUp || g.player.DesiredDir == entities.DirDown {
+			switch g.player.DesiredDir {
+			case entities.DirUp, entities.DirDown:
 				g.player.X = cx
-			} else if g.player.DesiredDir == entities.DirLeft || g.player.DesiredDir == entities.DirRight {
+			case entities.DirLeft, entities.DirRight:
 				g.player.Y = cy
 			}
 			g.player.CurrentDir = g.player.DesiredDir
@@ -525,41 +526,10 @@ func (g *Game) cellCenter(gridX, gridY int) (float64, float64) {
 	return float64(gridX*tileSize + tileSize/2), float64(gridY*tileSize + tileSize/2)
 }
 
-func (g *Game) isAlignedToCellCenter() bool {
-	gx, gy := g.playerGrid()
-	cx, cy := g.cellCenter(gx, gy)
-	// Use alignment threshold to ensure we catch alignment at high speeds
-	return math.Abs(g.player.X-cx) < alignmentThreshold && math.Abs(g.player.Y-cy) < alignmentThreshold
-}
-
 func (g *Game) isNearCellCenter() bool {
 	gx, gy := g.playerGrid()
 	cx, cy := g.cellCenter(gx, gy)
 	return math.Abs(g.player.X-cx) < 5.0 && math.Abs(g.player.Y-cy) < 5.0
-}
-
-// canMoveGhost checks if a ghost can move in a direction from its current position
-func (g *Game) canMoveGhost(gh *entities.Ghost, dir entities.Direction) bool {
-	if dir == entities.DirNone {
-		return false
-	}
-	dx, dy := entities.DirDelta(dir)
-	gx := int(gh.X) / tileSize
-	gy := int(gh.Y) / tileSize
-
-	// Next cell
-	nx, ny := gx+dx, gy+dy
-	// Wrap-around checks on X
-	if nx < 0 {
-		nx = g.tileMap.Width - 1
-	}
-	if nx >= g.tileMap.Width {
-		nx = 0
-	}
-	if ny < 0 || ny >= g.tileMap.Height {
-		return false
-	}
-	return !g.tileMap.IsWall(nx, ny)
 }
 
 func isReverse(a, b entities.Direction) bool {

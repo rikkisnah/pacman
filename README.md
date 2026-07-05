@@ -1,159 +1,152 @@
-# Pac-Man (Go + Ebiten)
+<!-- #ai-assisted with OCA/OpenAI Model with human supervision -->
 
-## Overview
+# Pac-Man (Go + Ebitengine)
 
-A feature-rich Pac-Man clone written in Go using the Ebiten game engine. This implementation includes:
-- Classic 28×31 ASCII-based maze with authentic gameplay
-- Smooth grid-based movement with improved turn detection  
-- Four ghosts with random movement patterns
-- Power pellets with 2-second frightened mode and scoring combos
-- Persistent high scores with multi-player leaderboard
-- Audio system with synthesized fallback sounds
-- Hidden easter eggs and personal touches
+A cross-platform Pac-Man-style desktop game written in Go with Ebitengine. It includes smooth grid movement, four ghosts, power-pellet combos, terminal level completion, persistent multi-player high scores, optional audio, and a scalable classic maze.
 
 ## Quick Start
 
-### Prerequisites
-- Go 1.19+ (1.22+ recommended)
-- Make (optional but recommended)
+Prerequisites:
 
-### Build & Run
+- Go 1.22 or newer
+- Make
+- Platform libraries required by Ebitengine
+- golangci-lint 2.12.2 for `make lint` and `make validate`
+
 ```bash
-# macOS/Linux
+make setup
+make validate
 make run
-
-# Windows
-make build
-./bin/pacman.exe
-
-# Without make
-go build -o pacman ./cmd/pacman
-./pacman
 ```
+
+Audio is disabled by default. Enable it for one run with:
+
+```bash
+PACMAN_ENABLE_AUDIO=1 make run
+```
+
+`PACMAN_DISABLE_AUDIO=1` always takes precedence.
 
 ## Controls
 
 | Key | Action |
-|-----|--------|
-| **Arrow Keys** | Move Pacman |
-| **Space** | Pause/Resume |
-| **F** | Toggle fullscreen |
-| **S** | Show/Hide leaderboard |
-| **Q** | Quit (shows leaderboard first) |
-| **R** | Easter egg: "Dad Loves Rekha" |
-| **Y** | Easter egg: "Dad Loves Roy" |
+| --- | --- |
+| Arrow keys | Move Pac-Man |
+| Space | Pause or resume |
+| F | Toggle fullscreen |
+| S | Show or hide the leaderboard |
+| Q | Show the leaderboard, then quit; exit immediately after level completion |
+| R | Show the Rekha easter egg |
+| Y | Show the Roy easter egg |
 
-## Gameplay Features
+## Gameplay
 
-### Scoring System
-- **Regular pellets**: 10 points each
-- **Power pellets**: 50 points each
-- **Frightened ghosts**: 200 → 400 → 800 → 1600 points (combo multiplier)
+- Regular pellets score 10 points and power pellets score 50.
+- Power pellets activate frightened mode for exactly 120 ticks (2 seconds at 60 UPS).
+- Consecutive frightened ghosts score 200, 400, 800, and 1600 points.
+- Eating the final regular or power pellet immediately ends gameplay and shows the level-complete screen. A final-pellet win takes precedence over a ghost collision on the same update.
+- The checked-in constants currently move the player at 120 px/s and ghosts at 105 px/s.
+- High scores are stored as JSON in the operating system's user config directory.
+- Set `PACMAN_CONFIG_DIR` to override high-score storage, especially in tests.
 
-### Power Mode
-- Power pellets activate frightened mode for exactly 2 seconds (120 ticks)
-- Ghosts turn blue and can be eaten for bonus points
-- Score multiplier increases with each ghost eaten in sequence
-- Eaten ghosts return to the ghost house
+The game accepts a player name at startup and immediately persists each player's improved score, even when it does not beat the global leader. The leaderboard shows the top ten players and supports legacy high-score import.
 
-### Name Entry & High Scores
-- Enter your name at game start (max 12 characters: letters, numbers, spaces, _, -)
-- High scores are saved per player in JSON format
-- Storage location: `$HOME/.config/pacman/highscore.json`
-- Leaderboard shows top 10 players, accessible via 'S' key or on game over
-- Legacy high score file import supported
+## Audio And Assets
 
-### Audio System
-Audio is **disabled by default**. To enable:
+Place optional WAV files under `assets/sounds/`:
 
-```bash
-# Enable for single run
-PACMAN_ENABLE_AUDIO=1 make run
+- `pellet.wav`
+- `power.wav`
+- `ghost.wav`
+- `death.wav`
 
-# Force disable (overrides enable)
-PACMAN_DISABLE_AUDIO=1 make run
-```
-
-**Sound Files**: Place WAV files in `assets/sounds/`:
-- `pellet.wav` - Pellet collection sound
-- `power.wav` - Power pellet sound  
-- `ghost.wav` - Ghost eaten sound
-- `death.wav` - Player death sound
-
-If files are missing, the game synthesizes simple beep sounds as fallbacks.
-
-### Easter Eggs
-- **Name-based**: Enter "Rekha" or "Roy" as your name for a special message
-- **Key-based**: Press 'R' or 'Y' during gameplay for instant messages
-- **Random**: ~1/6000 chance per update (~100 second average) for surprise messages
-- All messages appear in pink for 3 seconds
+When a file is absent, the audio manager can synthesize a fallback beep. Art and sound contributions must be original or carry a compatible license.
 
 ## Development
 
-### Testing
 ```bash
-make test           # Run all tests
-make coverage       # Generate coverage report
-make coverage-html  # Generate HTML coverage report
+make format          # Format Go source
+make lint            # Run go vet and golangci-lint
+make test            # Run all tests
+make test-NAME       # Run tests matching NAME
+make coverage        # Print coverage details
+make coverage-html   # Write coverage.html
+make score           # Print the architecture scorecard
+make validate        # Run the complete local gate
+make visual-smoke    # Launch under Xvfb and capture tmp/pacman-smoke.png
 ```
 
-### Code Quality
+Target one package or test directly when iterating:
+
 ```bash
-make fmt    # Format code
-make vet    # Run go vet
-make deps   # Update dependencies
+go test ./internal/game
+go test ./internal/game -run TestFrightenedModeTimeout
+go test -v ./internal/game
 ```
 
-### AI Development Assistant
-This project includes `CLAUDE.md` with detailed architecture documentation and common commands for AI assistants like Claude Code. It contains precise technical specifications for the movement system, timer mechanics, and development workflows.
+`make release` builds only for the current native amd64 host. Platform-specific local targets fail early when invoked from the wrong operating system:
 
-### Cross-Platform Builds
 ```bash
-make release        # Build for all platforms
-make build-linux    # Linux build
-make build-darwin   # macOS build  
-make build-windows  # Windows build
+make release
+make build-linux
+make build-darwin
+make build-windows
 ```
+
+The native release workflow builds Linux, Intel macOS, and Windows artifacts on their corresponding GitHub runners for `v*` tags or manual dispatch. It uploads workflow artifacts without creating a GitHub Release.
 
 ## Project Structure
 
+```text
+cmd/pacman/                 Application entry point
+internal/entities/          Player and ghost definitions
+internal/game/              Game loop, movement, audio, collisions, state, scores
+internal/tilemap/           Maze data and rendering
+internal/ui/                HUD utilities
+assets/images/              Image assets
+assets/sounds/              Optional sound assets
+docs/agent/                 Agent engineering and review guides
+docs/adr/                   Architecture decision records
+scripts/score_architecture.py  Local governance scorecard
+scripts/visual_smoke.sh        Xvfb launch and screenshot validation
+tests/test_score_architecture.py Scorecard regression tests
+.github/workflows/            Validation and native release automation
 ```
-├── cmd/pacman/          # Entry point
-├── internal/
-│   ├── game/           # Core game logic, audio, high scores
-│   ├── entities/       # Player and ghost definitions
-│   ├── tilemap/        # Maze rendering and tile management
-│   └── ui/             # HUD utilities
-├── assets/
-│   └── sounds/         # Audio files (currently empty)
-├── Makefile           # Build automation
-├── CLAUDE.md          # AI development assistant instructions
-└── requirements.md    # Detailed implementation status
-```
 
-## Technical Details
+## Technical Invariants
 
-- **Game Speed**: 60 updates per second (UPS)
-- **Player Speed**: 720 pixels/second (1.5× original speed)
-- **Ghost Speed**: 630 pixels/second (1.5× original speed)
-- **Movement**: Grid-based with 6-pixel alignment threshold (`playerSpeedPixelsPerUpdate/2`) for responsive turning
-- **Resolution**: Native 28×31 tile maze, auto-scaled to fit ~75% of display
-- **Persistence**: High scores stored in OS user config directory
+- Ebitengine calls `Update` at 60 UPS, while `Draw` renders to an offscreen buffer and `Layout` controls dimensions.
+- The maze uses 16x16-pixel cells whose centers are `(x*16+8, y*16+8)`.
+- Queued turns currently use a fixed 4-pixel alignment threshold.
+- A blocked player snaps to the cell center to prevent jitter.
+- Timing is tick-based. Frightened timeout processing occurs before the rest of the update logic.
+- Level completion is terminal: player and ghost simulation stop once no regular or power pellets remain.
+- High-score writes are atomic and happen immediately when a new score is achieved.
 
-## Known Issues & Recent Fixes
+Detailed current and planned game requirements live in `requirements.md`.
 
-### Current Issues
-- ⚠️ **Known Issue**: Up/down arrow keys experiencing responsiveness issues (in progress)
+## Agentic Repository Governance
 
-### Recent Bug Fixes
-- ✅ **Fixed**: Movement keys not responding when game paused or showing leaderboard
-- ✅ **Fixed**: Direction changes not registering until hitting wall (improved alignment detection)  
-- ✅ **Fixed**: Frightened mode timer expiring correctly after timeout
+This repository uses local-first governance and validation:
+
+- `AGENTS.md` is the authoritative operating contract.
+- `CLAUDE.md` is a symlink to `AGENTS.md` for cross-tool parity.
+- `MEMORY.md` stores durable, non-secret context.
+- `CONTEXT.md` is a temporary branch handoff placeholder.
+- `INSTALL.md`, `DEVELOP.md`, and `CREATE-PR.md` define repeatable workflows.
+- `make score-gate` requires every enabled architecture dimension to score 10/10.
+- GitHub validation runs `make validate` under Xvfb and then runs `make visual-smoke`; release builds run natively on each target OS.
+
+Treat documentation drift as incomplete work. Never store credentials, tokens, private keys, bearer headers, customer data, or other sensitive material in repository docs or examples.
+
+## Known Follow-Ups
+
+- Add multi-level progression that resets the maze and increases difficulty after the existing terminal level-complete state.
+
+- Add chase/scatter ghost AI and pathfinding.
+- Add fruits.
+- Add licensed or original sound assets.
 
 ## License
 
-See `LICENSE` file for details.
-
----
-
-*A tribute project with personal touches and professional polish.*
+See `LICENSE`.

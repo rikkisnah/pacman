@@ -60,6 +60,19 @@ func (m *TileMap) EatPelletAt(x, y int) (bool, bool) {
 	return false, false
 }
 
+// RemainingPellets returns the number of regular and power pellets left.
+func (m *TileMap) RemainingPellets() int {
+	remaining := 0
+	for _, row := range m.Tiles {
+		for _, tile := range row {
+			if tile == TilePellet || tile == TilePower {
+				remaining++
+			}
+		}
+	}
+	return remaining
+}
+
 func (m *TileMap) Draw(dst *ebiten.Image) {
 	pelletColor := color.RGBA{R: 255, G: 255, B: 255, A: 255}
 
